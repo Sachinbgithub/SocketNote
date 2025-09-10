@@ -1,6 +1,6 @@
 {
-  "name": "office-notes-sharing-app",
-  "version": "1.0.0",
+  "name": "socketnote",
+  "version": "1.1.0",
   "description": "Local network notes sharing application with folder management and file attachments",
   "main": "server/index.js",
   "scripts": {
@@ -11,8 +11,8 @@
     "start": "cd server && npm start",
     "install-all": "npm install && cd server && npm install && cd ../client && npm install"
   },
-  "keywords": ["notes", "sharing", "office", "network"],
-  "author": "Office Notes Team",
+  "keywords": ["notes", "sharing", "office", "network", "socketnote"],
+  "author": "Sachin",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"

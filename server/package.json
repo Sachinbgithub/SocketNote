@@ -1,7 +1,7 @@
 {
-  "name": "office-notes-server",
-  "version": "1.0.0",
-  "description": "Backend server for Office Notes Sharing App",
+  "name": "socketnote-server",
+  "version": "1.1.0",
+  "description": "Backend server for SocketNote",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

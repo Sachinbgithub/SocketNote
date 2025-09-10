@@ -5,8 +5,9 @@ import NotesList from './components/NotesList';
 import NoteEditor from './components/NoteEditor';
 import SearchBar from './components/SearchBar';
 import BackupManager from './components/BackupManager';
+import Settings from './components/Settings';
 import ErrorBoundary from './components/ErrorBoundary';
-import { Folder, FileText, Search, Database, Menu, X, Home } from 'lucide-react';
+import { Folder, FileText, Search, Database, Menu, X, Home, Settings as SettingsIcon } from 'lucide-react';
 
 function App() {
   const [folders, setFolders] = useState([]);
@@ -18,6 +19,7 @@ function App() {
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showBackupManager, setShowBackupManager] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -485,6 +487,14 @@ function App() {
             >
               <Database size={20} />
             </button>
+
+            <button
+              onClick={() => setShowSettings(true)}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              title="Settings"
+            >
+              <SettingsIcon size={20} />
+            </button>
           </div>
         </header>
 
@@ -605,11 +615,10 @@ function App() {
             <div className="flex items-center space-x-4">
               <span>SocketNote</span>
               <span>•</span>
-              <span>v1.0.0</span>
+              <span>v1.1.0</span>
             </div>
             <div className="flex items-center space-x-2">
-              <span>Developed by</span>
-              <span className="font-semibold text-primary-600">Sachin</span>
+              <span>Developed by Sachin</span>
             </div>
           </div>
         </footer>
@@ -649,6 +658,11 @@ function App() {
           <BackupManager
             onClose={() => setShowBackupManager(false)}
           />
+        )}
+
+        {/* Settings Modal */}
+        {showSettings && (
+          <Settings onClose={() => setShowSettings(false)} />
         )}
       </div>
     </ErrorBoundary>

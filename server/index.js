@@ -12,6 +12,7 @@ const noteRoutes = require('./routes/notes');
 const uploadRoutes = require('./routes/upload');
 const searchRoutes = require('./routes/search');
 const backupRoutes = require('./routes/backup');
+const settingsRoutes = require('./routes/settings');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -307,6 +308,7 @@ app.use('/api/notes', noteRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/backup', backupRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

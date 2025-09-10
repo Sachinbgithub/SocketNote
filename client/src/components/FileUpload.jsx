@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, X, Image, File, AlertCircle, CheckCircle, Archive } from 'lucide-react';
 import { formatFileSize } from '../utils/api';
@@ -6,6 +6,34 @@ import { formatFileSize } from '../utils/api';
 const FileUpload = ({ onUpload, onClose, loading }) => {
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [errors, setErrors] = useState([]);
+  const [uploadConfig, setUploadConfig] = useState({
+    preset: 'office',
+    customSize: 50
+  });
+
+  // Load upload configuration
+  useEffect(() => {
+    const saved = localStorage.getItem('uploadConfig');
+    if (saved) {
+      try {
+        const config = JSON.parse(saved);
+        setUploadConfig(config);
+      } catch (error) {
+        console.error('Failed to load upload config:', error);
+      }
+    }
+  }, []);
+
+  const presets = {
+    office: { fileSize: 50, files: 10 },
+    images: { fileSize: 100, files: 5 },
+    large: { fileSize: 200, files: 3 },
+    maximum: { fileSize: 500, files: 2 }
+  };
+
+  const currentPreset = presets[uploadConfig.preset];
+  const maxFileSize = uploadConfig.customSize * 1024 * 1024; // Convert MB to bytes
+  const maxFiles = currentPreset.files;
 
   const onDrop = useCallback((acceptedFiles, rejectedFiles) => {
     // Handle accepted files
@@ -23,11 +51,11 @@ const FileUpload = ({ onUpload, onClose, loading }) => {
       errors: errors.map(error => {
         switch (error.code) {
           case 'file-too-large':
-            return 'File is too large (max 50MB)';
+            return `File is too large (max ${uploadConfig.customSize}MB)`;
           case 'file-invalid-type':
             return 'Invalid file type (images, PDFs, Office documents, text files, archive files allowed)';
           case 'too-many-files':
-            return 'Too many files (max 10)';
+            return `Too many files (max ${maxFiles})`;
           default:
             return error.message;
         }
@@ -35,10 +63,12 @@ const FileUpload = ({ onUpload, onClose, loading }) => {
     }));
 
     setErrors(prev => [...prev, ...newErrors]);
-  }, []);
+  }, [uploadConfig.customSize, maxFiles]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    maxSize: maxFileSize,
+    maxFiles: maxFiles,
     accept: {
       // Images
       'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp', '.bmp', '.tiff'],
@@ -60,27 +90,20 @@ const FileUpload = ({ onUpload, onClose, loading }) => {
       'application/gzip': ['.gz'],
       'application/x-gzip': ['.gz'],
       'application/octet-stream': ['.zip', '.rar', '.7z', '.tar', '.gz']
-    },
-    maxSize: 50 * 1024 * 1024, // 50MB (office preset)
-    maxFiles: 10,
-    disabled: loading
+    }
   });
 
   const handleUpload = async () => {
     if (uploadedFiles.length === 0) return;
 
-    try {
-      const files = uploadedFiles.map(f => f.file);
-      await onUpload(files);
-    } catch (error) {
-      console.error('Upload failed:', error);
-      // Update file status to error
-      setUploadedFiles(prev => prev.map(f => ({ ...f, status: 'error' })));
-    }
+    const files = uploadedFiles.map(f => f.file);
+    await onUpload(files);
+    setUploadedFiles([]);
+    setErrors([]);
   };
 
-  const removeFile = (fileId) => {
-    setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
+  const removeFile = (id) => {
+    setUploadedFiles(prev => prev.filter(f => f.id !== id));
   };
 
   const removeError = (index) => {
@@ -88,124 +111,110 @@ const FileUpload = ({ onUpload, onClose, loading }) => {
   };
 
   const getFileIcon = (file) => {
-    const fileType = file.type;
-    const fileName = file.name.toLowerCase();
-    
-    // Images
-    if (fileType.startsWith('image/')) {
-      return <Image className="h-8 w-8 text-blue-500" />;
+    if (file.type.startsWith('image/')) return <Image className="h-5 w-5 text-blue-500" />;
+    if (file.type === 'application/pdf') return <File className="h-5 w-5 text-red-500" />;
+    if (file.type.includes('zip') || file.type.includes('rar') || file.type.includes('7z') || file.type.includes('tar') || file.type.includes('gz')) {
+      return <Archive className="h-5 w-5 text-purple-500" />;
     }
-    
-    // PDFs
-    if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
-      return <File className="h-8 w-8 text-red-500" />;
-    }
-    
-    // Word documents
-    if (fileType.includes('word') || fileName.endsWith('.doc') || fileName.endsWith('.docx')) {
-      return <File className="h-8 w-8 text-blue-600" />;
-    }
-    
-    // Excel files
-    if (fileType.includes('excel') || fileType.includes('spreadsheet') || fileName.endsWith('.xls') || fileName.endsWith('.xlsx')) {
-      return <File className="h-8 w-8 text-green-600" />;
-    }
-    
-    // PowerPoint files
-    if (fileType.includes('powerpoint') || fileType.includes('presentation') || fileName.endsWith('.ppt') || fileName.endsWith('.pptx')) {
-      return <File className="h-8 w-8 text-orange-500" />;
-    }
-    
-    // Text files
-    if (fileType === 'text/plain' || fileName.endsWith('.txt')) {
-      return <File className="h-8 w-8 text-gray-600" />;
-    }
-    
-    // Archive files
-    if (fileType === 'application/zip' || fileType === 'application/x-zip-compressed' || 
-        fileType === 'application/x-rar-compressed' || fileType === 'application/x-7z-compressed' ||
-        fileType === 'application/x-tar' || fileType === 'application/gzip' || fileType === 'application/x-gzip' ||
-        fileName.endsWith('.zip') || fileName.endsWith('.rar') || fileName.endsWith('.7z') || 
-        fileName.endsWith('.tar') || fileName.endsWith('.gz')) {
-      return <Archive className="h-8 w-8 text-purple-500" />;
-    }
-    
-    // Default
-    return <File className="h-8 w-8 text-gray-500" />;
-  };
-
-  const getFilePreview = (file) => {
-    if (file.type.startsWith('image/')) {
-      return (
-        <img
-          src={URL.createObjectURL(file)}
-          alt={file.name}
-          className="w-16 h-16 object-cover rounded-lg"
-        />
-      );
-    }
-    return getFileIcon(file);
+    return <File className="h-5 w-5 text-gray-500" />;
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
-        {/* Header */}
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Upload Files</h2>
+          <div className="flex items-center space-x-2">
+            <Upload className="h-6 w-6 text-blue-600" />
+            <h2 className="text-xl font-semibold text-gray-900">Upload Files</h2>
+          </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors"
           >
-            <X className="h-5 w-5" />
+            <X className="h-6 w-6" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-6">
-          {/* Drop Zone */}
+        <div className="p-6">
+          {/* Upload Configuration Display */}
+          <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+            <div className="text-sm text-blue-800">
+              <strong>Current Limits:</strong> Max {uploadConfig.customSize}MB per file, {maxFiles} files max
+            </div>
+          </div>
+
+          {/* Dropzone */}
           <div
             {...getRootProps()}
-            className={`file-upload-zone ${isDragActive ? 'dragover' : ''} ${
-              loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+              isDragActive
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-300 hover:border-gray-400'
             }`}
           >
             <input {...getInputProps()} />
-            <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             {isDragActive ? (
-              <p className="text-lg font-medium text-primary-600">
-                Drop the files here...
-              </p>
+              <p className="text-lg text-blue-600">Drop the files here...</p>
             ) : (
               <div>
-                <p className="text-lg font-medium text-gray-900 mb-2">
-                  Drag & drop files here
+                <p className="text-lg text-gray-600 mb-2">
+                  Drag & drop files here, or click to select
                 </p>
                 <p className="text-sm text-gray-500">
-                  or click to select files
-                </p>
-                <p className="text-xs text-gray-400 mt-2">
-                  Supported: Images, PDFs, Office documents, text files, archive files (max 50MB each, up to 10 files)
+                  Max {uploadConfig.customSize}MB per file, up to {maxFiles} files
                 </p>
               </div>
             )}
           </div>
 
-          {/* Errors */}
+          {/* File List */}
+          {uploadedFiles.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-3">Selected Files</h3>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {uploadedFiles.map((fileData) => (
+                  <div
+                    key={fileData.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  >
+                    <div className="flex items-center space-x-3">
+                      {getFileIcon(fileData.file)}
+                      <div>
+                        <div className="font-medium text-gray-900">{fileData.file.name}</div>
+                        <div className="text-sm text-gray-500">
+                          {formatFileSize(fileData.file.size)}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => removeFile(fileData.id)}
+                      className="text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Error Messages */}
           {errors.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-red-600 flex items-center">
-                <AlertCircle className="h-4 w-4 mr-1" />
+            <div className="mt-6">
+              <h3 className="text-lg font-medium text-red-600 mb-3 flex items-center">
+                <AlertCircle className="h-5 w-5 mr-2" />
                 Upload Errors
               </h3>
-              {errors.map((error, index) => (
-                <div key={index} className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-red-800">
-                        {error.filename}
-                      </p>
-                      <ul className="text-xs text-red-600 mt-1">
+              <div className="space-y-2">
+                {errors.map((error, index) => (
+                  <div
+                    key={index}
+                    className="flex items-start justify-between p-3 bg-red-50 border border-red-200 rounded-lg"
+                  >
+                    <div>
+                      <div className="font-medium text-red-800">{error.filename}</div>
+                      <ul className="text-sm text-red-600 mt-1">
                         {error.errors.map((err, i) => (
                           <li key={i}>• {err}</li>
                         ))}
@@ -213,79 +222,42 @@ const FileUpload = ({ onUpload, onClose, loading }) => {
                     </div>
                     <button
                       onClick={() => removeError(index)}
-                      className="p-1 hover:bg-red-100 rounded"
+                      className="text-red-400 hover:text-red-600 transition-colors ml-2"
                     >
-                      <X className="h-4 w-4 text-red-600" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* File List */}
-          {uploadedFiles.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-gray-900">
-                Selected Files ({uploadedFiles.length})
-              </h3>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {uploadedFiles.map((fileInfo) => (
-                  <div
-                    key={fileInfo.id}
-                    className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg"
-                  >
-                    <div className="flex-shrink-0">
-                      {getFilePreview(fileInfo.file)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {fileInfo.file.name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {formatFileSize(fileInfo.file.size)}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => removeFile(fileInfo.id)}
-                      className="p-1 hover:bg-gray-200 rounded"
-                      disabled={loading}
-                    >
-                      <X className="h-4 w-4 text-gray-500" />
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
                 ))}
               </div>
             </div>
           )}
-        </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
-          <button
-            onClick={onClose}
-            className="btn btn-secondary"
-            disabled={loading}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleUpload}
-            className="btn btn-primary"
-            disabled={loading || uploadedFiles.length === 0}
-          >
-            {loading ? (
-              <>
-                <div className="loading-spinner mr-2"></div>
-                Uploading...
-              </>
-            ) : (
-              <>
-                <Upload className="h-4 w-4 mr-2" />
-                Upload Files
-              </>
-            )}
-          </button>
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleUpload}
+              disabled={uploadedFiles.length === 0 || loading}
+              className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center space-x-2"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Uploading...</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4" />
+                  <span>Upload {uploadedFiles.length} File{uploadedFiles.length !== 1 ? 's' : ''}</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
